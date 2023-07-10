@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <string.h>
 #include <memory.h>
+#include <stdio.h>
 
 #include "json.h"
 
@@ -116,15 +117,17 @@ u32 parse_string(const json_context_t *context, __json_token_t *token) {
     u32 str_len = 0;
     while (text[pos] != '"') {
         if (text[pos] == '\\') {
-            pos++; // skip escaped as it could be \"
+            pos++;
         }
         pos++;
     }
 
-    const u32 count = pos - context->pos;
+    const u32 starting_pos = context->pos + 1;
+    const u32 count = pos - starting_pos;
     token->str = (char *)malloc(count + 1);
-    memcpy(token->str, &(text[context->pos]), count);
-    token->str[count] = '\0';
+    memset(token->str, 0, count + 1);
+    memcpy(token->str, &(text[starting_pos]), count);
+    token->type = TOKEN_STRING;
 
     pos++;
 
@@ -325,7 +328,7 @@ void * __json_object_get_raw(const json_object_t object, const char *key) {
     for (u32 i=0;
          i<object.len;
          i++) {
-        if (strcmp(object.props[i].key, key)) {
+        if (!strcmp(object.props[i].key, key)) {
             json_value_t *v = &(object.props[i].value);
             switch (v->type) {
                 case JSON_TYPE_BOOL:
@@ -352,10 +355,35 @@ json_value_type_t __json_value_type(const json_object_t object,
     for (u32 i=0;
             i<object.len;
             i++) {
-        if (strcmp(object.props[i].key, key)) {
+        if (!strcmp(object.props[i].key, key)) {
             return object.props[i].value.type;
         }
     }
 
     return JSON_TYPE_NONE;
 }
+
+u32 json_parse_file(json_value_t *value, const char *filepath) {
+    FILE *file = fopen(filepath, "r");
+    if (file == NULL)
+        return JSON_FOPEN_ERR;
+
+    fseek(file, 0, SEEK_END);
+    u32 file_size = ftell(file);
+    rewind(file);
+
+    const char *json_data = (const char *)malloc(sizeof(char) * file_size);
+
+    u32 pos = 0;
+    __json_token_t token;
+
+    json_context_t context = {0};
+    context.len = file_size;
+    context.text = (char *)json_data;
+    context.curtok = next_token(&context);
+
+    u32 parse_err = parse_object(&context, value);
+    value->type = JSON_TYPE_OBJECT;
+    return parse_err;
+}
+

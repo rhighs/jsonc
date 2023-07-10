@@ -26,6 +26,7 @@ typedef int64_t i64;
 
 #define JSON_LEN_MISMATCH_ERR 0x1
 #define JSON_ALLOC_FAILED_ERR 0x2
+#define JSON_FOPEN_ERR        0x3
 
 #define JSON_GET(VALUE, KEY, TYPE) \
     (assert(VALUE.type == JSON_TYPE_OBJECT), \
@@ -110,4 +111,7 @@ void * __json_object_get_raw(const json_object_t object, const char *key);
 
 json_value_type_t __json_value_type(const json_object_t value,
         const char *key);
+
+u32 json_parse_file(json_value_t *value, const char *filepath);
+
 #endif
