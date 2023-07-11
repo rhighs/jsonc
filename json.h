@@ -28,17 +28,68 @@ typedef int64_t i64;
 #define JSON_ALLOC_FAILED_ERR 0x2
 #define JSON_FOPEN_ERR        0x3
 
-#define JSON_GET(VALUE, KEY, TYPE) \
-    (assert(VALUE.type == JSON_TYPE_OBJECT), \
-     *(TYPE *)__json_object_get_raw(VALUE.object, KEY))
+#define JSON_GET(__VALUE, __KEY, __TYPE) \
+    (assert(__VALUE.type == JSON_TYPE_OBJECT), \
+     *(__TYPE *)__json_object_get_raw(__VALUE.object, __KEY))
 
-#define JSON_EXISTS(VALUE, KEY) \
-    (assert(VALUE.type == JSON_TYPE_OBJECT), \
-     __json_object_get_raw(VALUE.object, KEY) != NULL)
+#define JSON_EXISTS(__VALUE, __KEY) \
+    (assert(__VALUE.type == JSON_TYPE_OBJECT), \
+     __json_object_get_raw(__VALUE.object, __KEY) != NULL)
 
-#define JSON_TYPE(VALUE, KEY) \
-    (assert(VALUE.type == JSON_TYPE_OBJECT), \
-     __json_value_type(VALUE.object, KEY))
+#define JSON_TYPE(__VALUE, __KEY) \
+    (assert(__VALUE.type == JSON_TYPE_OBJECT), \
+     __json_value_type(__VALUE.object, __KEY))
+
+#define JSON_SET(__VALUE, __KEY, __TYPE, TYPE, VALUE) \
+    do{\
+        assert(__VALUE.type == JSON_TYPE_OBJECT);\
+        TYPE *value_ptr = \
+            (TYPE *)__json_set(&(__VALUE), __KEY, __TYPE);\
+        *value_ptr = VALUE;\
+    }while(0)
+
+#define JSON_NUMBER(VALUE)\
+    ((json_value_t) {\
+     JSON_TYPE_NUMBER,\
+     .number = (double)(VALUE),\
+    })
+
+#define JSON_STRING(VALUE)\
+    ((json_value_t) {\
+     JSON_TYPE_STRING,\
+     .str = (char *)(VALUE),\
+    })
+
+#define JSON_BOOL(VALUE)\
+    ((json_value_t) {\
+     JSON_TYPE_BOOL,\
+     .boolean = (BOOL)(VALUE),\
+    })
+
+#define JSON_NULL\
+    ((json_value_t) {\
+     JSON_TYPE_NULL,\
+     0,\
+    })
+
+#define JSON_PROP(KEY, VALUE)\
+    ((json_property_t) {\
+     (char *)KEY,\
+     (VALUE),\
+     }\
+    )
+
+#define JSON_OBJECT(...)\
+    __json_wrap_object_value((json_value_t) {\
+     JSON_TYPE_OBJECT,\
+     .object = (json_object_t){\
+        .__props_cap = (u32)0,\
+        .__keys_cap = (u32)0,\
+        .keys = (char **)NULL,\
+        .len = (u32)sizeof((json_property_t[]){ __VA_ARGS__ })/sizeof(json_property_t),\
+        .props = (json_property_t *)((json_property_t[]){ __VA_ARGS__ }),\
+     },\
+    })
 
 typedef enum {
     TOKEN_STRING,
@@ -79,6 +130,7 @@ struct __json_object_t;
 struct __json_property_t;
 
 typedef struct __json_array_t {
+    u32 __cap;
     struct __json_value_t *values;
     u32 len;
 } json_array_t;
@@ -86,6 +138,8 @@ typedef struct __json_array_t {
 typedef struct __json_object_t {
     u32 len;
     char **keys;
+    u32 __keys_cap;
+    u32 __props_cap;
     struct __json_property_t *props;
 } json_object_t;
 
@@ -112,6 +166,9 @@ void * __json_object_get_raw(const json_object_t object, const char *key);
 json_value_type_t __json_value_type(const json_object_t value,
         const char *key);
 
-u32 json_parse_file(json_value_t *value, const char *filepath);
+void * __json_set(json_value_t *value, const char *key,
+        const json_value_type_t type);
+
+json_value_t __json_wrap_object_value(const json_value_t value);
 
 #endif

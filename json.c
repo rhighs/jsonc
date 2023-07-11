@@ -198,6 +198,7 @@ u32 parse_array(json_context_t *context, json_value_t *value) {
         advance(context, TOKEN_COMMA);
     }
 
+    value->array.__cap = values_size;
     value->array.len = i;
     value->array.values = values;
 
@@ -245,6 +246,8 @@ u32 parse_object(json_context_t *context, json_value_t *value) {
         advance(context, TOKEN_COMMA);
     }
 
+    value->object.__keys_cap = keys_size;
+    value->object.__props_cap = props_size;
     value->object.len = i;
     value->object.keys = keys;
     value->object.props = props;
@@ -324,32 +327,6 @@ u32 json_parse(json_value_t *value, const char *text, const u32 len) {
     return parse_err;
 }
 
-void * __json_object_get_raw(const json_object_t object, const char *key) {
-    for (u32 i=0;
-         i<object.len;
-         i++) {
-        if (!strcmp(object.props[i].key, key)) {
-            json_value_t *v = &(object.props[i].value);
-            switch (v->type) {
-                case JSON_TYPE_BOOL:
-                    return &(v->boolean);
-                case JSON_TYPE_STRING:
-                    return &(v->str);
-                case JSON_TYPE_NUMBER:
-                    return &(v->number);
-                case JSON_TYPE_ARRAY:
-                    return &(v->array);
-                case JSON_TYPE_OBJECT:
-                    return &(v->object);
-                default:
-                    return v;
-            }
-        }
-    }
-
-    return NULL;
-}
-
 json_value_type_t __json_value_type(const json_object_t object,
         const char *key) {
     for (u32 i=0;
@@ -387,3 +364,128 @@ u32 json_parse_file(json_value_t *value, const char *filepath) {
     return parse_err;
 }
 
+void * __json_object_get_raw(const json_object_t object, const char *key) {
+    for (u32 i=0;
+         i<object.len;
+         i++) {
+        if (!strcmp(object.props[i].key, key)) {
+            json_value_t *v = &(object.props[i].value);
+            switch (v->type) {
+                case JSON_TYPE_BOOL:
+                    return &(v->boolean);
+                case JSON_TYPE_STRING:
+                    return &(v->str);
+                case JSON_TYPE_NUMBER:
+                    return &(v->number);
+                case JSON_TYPE_ARRAY:
+                    return &(v->array);
+                case JSON_TYPE_OBJECT:
+                    return &(v->object);
+                default:
+                    return v;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+#define __JSON_VALUE_ON_TYPE(__VALUE, __VALUE_PTR, __TYPE)\
+    do {switch (__TYPE) {\
+        case JSON_TYPE_NUMBER:\
+            *(__VALUE_PTR) = &(__VALUE.number);\
+            break;\
+        case JSON_TYPE_STRING:\
+            *(__VALUE_PTR) = &(__VALUE.str);\
+            break;\
+        case JSON_TYPE_OBJECT:\
+            *(__VALUE_PTR) = &(__VALUE.object);\
+            break;\
+        case JSON_TYPE_ARRAY:\
+            *(__VALUE_PTR) = &(__VALUE.array);\
+            break;\
+        case JSON_TYPE_BOOL:\
+            *(__VALUE_PTR) = &(__VALUE.boolean);\
+            break;\
+        default:\
+            break;\
+    }}while(0)
+
+
+void * __json_object_set_in_place(const json_object_t object, const char *key,
+        const json_value_type_t type) {
+    for (u32 i=0;
+            i<object.len;
+            i++) {
+        if (!strcmp(object.props[i].key, key)) {
+            object.props[i].value.type = type;
+            void *value_ptr = NULL;
+            __JSON_VALUE_ON_TYPE(object.props[i].value, &value_ptr, type);
+            return value_ptr;
+        }
+    }
+    return NULL;
+}
+
+void * __json_object_add(json_object_t *object, const char *key,
+        const json_value_type_t type) {
+    // Check for any room left in mem
+    if ((object->len + 1) * sizeof(json_property_t) >= object->__props_cap) {
+        object->__props_cap += object->__props_cap / 2;
+        object->props = realloc(object->props, object->__props_cap);
+        assert(object->props != NULL); // FIXME: return error to the caller
+    }
+    if ((object->len + 1) * sizeof(char) >= object->__keys_cap) {
+        object->__keys_cap += object->__keys_cap / 2;
+        object->keys = realloc(object->keys, object->__keys_cap);
+        assert(object->keys != NULL); // FIXME: return error to the caller
+    }
+
+    const u32 len = object->len;
+    object->len++;
+    const u32 keylen = strlen(key);
+    object->keys[len] = (char *)malloc(keylen + 1);
+    strcpy(object->keys[len], key);
+    object->props[len].key = (char *)malloc(keylen + 1);
+    strcpy(object->props[len].key, key);
+
+    object->props[len].value.type = type;
+    void *value_ptr = NULL;
+    __JSON_VALUE_ON_TYPE(object->props[len].value, &value_ptr, type);
+    return value_ptr;
+}
+
+void * __json_set(json_value_t *value, const char *key,
+        const json_value_type_t type) {
+    if (JSON_EXISTS((*value), key)) {
+        // FIXME: mem leak! overridden objects are not getitng free'd
+        return __json_object_set_in_place(value->object, key, type);
+    }
+
+    return __json_object_add(&(value->object), key, type);
+}
+
+json_value_t __json_wrap_object_value(const json_value_t value) {
+    assert(value.type == JSON_TYPE_OBJECT);
+    json_value_t new_value = value;
+
+    const u32 props_size
+        = sizeof(json_property_t) * new_value.object.len;
+    const u32 keys_size
+        = sizeof(char *) * new_value.object.len;
+    new_value.object.keys =
+        (char **)malloc(keys_size);
+
+    for (u32 i=0;
+            i<new_value.object.len;
+            i++) {
+        const u32 keylen = strlen(new_value.object.props[i].key);
+        new_value.object.keys[i] = (char *)malloc(keylen);
+        strcpy(new_value.object.keys[i], new_value.object.props[i].key);
+    }
+
+    new_value.object.__keys_cap = keys_size;
+    new_value.object.__props_cap = props_size;
+
+    return new_value;
+}
