@@ -46,5 +46,25 @@ i32 main(void) {
         printf("Found nully: null\n");
     }
 
+    JSON_SET(value, "ciaociao", JSON_TYPE_NUMBER, double, 100.0);
+    if (JSON_EXISTS(value, "ciaociao")
+            && JSON_TYPE(value, "ciaociao") == JSON_TYPE_NUMBER) {
+        double number = JSON_GET(value, "ciaociao", double);
+        printf("Found number: %f\n", number);
+    }
+
+    json_value_t o = JSON_OBJECT(
+            JSON_PROP("test", JSON_NUMBER(9999.0)),
+            JSON_PROP("value", JSON_OBJECT(
+                    JSON_PROP("test", JSON_NUMBER(100.0))
+                    ))
+    );
+
+    if (JSON_EXISTS(o, "test")
+            && JSON_TYPE(o, "test") == JSON_TYPE_NUMBER) {
+        double number = JSON_GET(o, "test", double);
+        printf("Found number: %f\n", number);
+    }
+ 
     return 0;
 }
