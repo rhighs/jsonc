@@ -28,13 +28,17 @@ typedef int64_t i64;
 #define JSON_ALLOC_FAILED_ERR 0x2
 #define JSON_FOPEN_ERR        0x3
 
-#define JSON_GET(__VALUE, __KEY, __TYPE) \
+#define JSON_GET(__VALUE, __TYPE, ...) \
     (assert(__VALUE.type == JSON_TYPE_OBJECT), \
-     *(__TYPE *)__json_object_get_raw(__VALUE.object, __KEY))
+     *(__TYPE *)__json_object_get_raw(__VALUE.object,\
+         (const char **)((char *[]){ __VA_ARGS__ }),\
+         sizeof((char *[]){ __VA_ARGS__ })/sizeof(char *)))
 
-#define JSON_EXISTS(__VALUE, __KEY) \
+#define JSON_EXISTS(__VALUE, ...) \
     (assert(__VALUE.type == JSON_TYPE_OBJECT), \
-     __json_object_get_raw(__VALUE.object, __KEY) != NULL)
+     __json_object_get_raw(__VALUE.object,\
+         (const char **)((char *[]){ __VA_ARGS__ }),\
+         sizeof((char *[]){ __VA_ARGS__ })/sizeof(char *))) != NULL
 
 #define JSON_TYPE(__VALUE, __KEY) \
     (assert(__VALUE.type == JSON_TYPE_OBJECT), \
@@ -161,7 +165,8 @@ typedef struct __json_property_t {
 
 u32 json_parse(json_value_t *value, const char *text, const u32 len);
 
-void * __json_object_get_raw(const json_object_t object, const char *key);
+void * __json_object_get_raw(const json_object_t object,
+        const char **keys, const u32 len);
 
 json_value_type_t __json_value_type(const json_object_t value,
         const char *key);

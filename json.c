@@ -364,25 +364,37 @@ u32 json_parse_file(json_value_t *value, const char *filepath) {
     return parse_err;
 }
 
-void * __json_object_get_raw(const json_object_t object, const char *key) {
-    for (u32 i=0;
-         i<object.len;
-         i++) {
-        if (!strcmp(object.props[i].key, key)) {
-            json_value_t *v = &(object.props[i].value);
-            switch (v->type) {
-                case JSON_TYPE_BOOL:
-                    return &(v->boolean);
-                case JSON_TYPE_STRING:
-                    return &(v->str);
-                case JSON_TYPE_NUMBER:
-                    return &(v->number);
-                case JSON_TYPE_ARRAY:
-                    return &(v->array);
-                case JSON_TYPE_OBJECT:
-                    return &(v->object);
-                default:
-                    return v;
+void * __json_object_get_raw(json_object_t object,
+        const char **keys, const u32 len) {
+
+    json_value_t *sub_value = NULL;
+
+    for (u32 k=0;
+            k<len-1;
+            k++
+        ) {
+        const char *key = keys[k];
+        if (sub_value != NULL) {
+            assert(sub_value->type == JSON_TYPE_OBJECT);
+            object = sub_value->object;
+        }
+
+        for (u32 i=0;
+                i<object.len;
+                i++) {
+            if (!strcmp(object.props[i].key, key)) {
+                json_value_t *v = &(object.props[i].value);
+                switch (v->type) {
+                    case JSON_TYPE_BOOL:
+                        return &(v->boolean);
+                    case JSON_TYPE_STRING:
+                        return &(v->str);
+                    case JSON_TYPE_NUMBER:
+                        return &(v->number);
+                    default:
+                        sub_value = v;
+                        break;
+                }
             }
         }
     }
