@@ -370,7 +370,7 @@ void * __json_object_get_raw(json_object_t object,
     json_value_t *sub_value = NULL;
 
     for (u32 k=0;
-            k<len-1;
+            k<len;
             k++
         ) {
         const char *key = keys[k];
@@ -399,7 +399,7 @@ void * __json_object_get_raw(json_object_t object,
         }
     }
 
-    return NULL;
+    return sub_value;
 }
 
 #define __JSON_VALUE_ON_TYPE(__VALUE, __VALUE_PTR, __TYPE)\
@@ -469,7 +469,7 @@ void * __json_object_add(json_object_t *object, const char *key,
 
 void * __json_set(json_value_t *value, const char *key,
         const json_value_type_t type) {
-    if (JSON_EXISTS((*value), key)) {
+    if (JSON_EXISTS((*value), (char *)key)) {
         // FIXME: mem leak! overridden objects are not getitng free'd
         return __json_object_set_in_place(value->object, key, type);
     }
