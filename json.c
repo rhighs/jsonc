@@ -7,7 +7,30 @@
 #include "json.h"
 
 #define advance(context, token_type) \
-    do{assert(context->curtok.type==token_type); context->curtok=next_token(context);}while(0)
+    do{\
+    if(context->curtok.type != token_type) { \
+        fprintf(stderr, "Expected token %s got %s at %c\n",\
+                tok2str[token_type],\
+                tok2str[context->curtok.type],\
+                context->text[context->pos]);\
+        exit(1);\
+    }\
+    context->curtok=next_token(context);\
+    }while(0)
+
+const char *tok2str[] = {
+    "TOKEN_STRING",
+    "TOKEN_NUMBER",
+    "TOKEN_NULL",
+    "TOKEN_FALSE",
+    "TOKEN_TRUE",
+    "TOKEN_ARRAY_START",
+    "TOKEN_ARRAY_END",
+    "TOKEN_OBJECT_START",
+    "TOKEN_OBJECT_END",
+    "TOKEN_COMMA",
+    "TOKEN_COLUMN",
+};
 
 typedef struct {
     u32 pos;
@@ -35,7 +58,7 @@ u32 skip_spaces(const json_context_t *context) {
 
 static inline
 u8 is_number(const char token) {
-    return token <= '9' && token >= '0';
+    return (token <= '9' && token >= '0') || token == '-';
 }
 
 static inline
@@ -43,6 +66,12 @@ u32 parse_number(const json_context_t *context, __json_token_t *token) {
     u32 pos = context->pos;
     const char *text = context->text;
     double value = 0.0;
+
+    u8 neg = text[pos] == '-';
+    if (neg) {
+        pos++;
+    }
+
     while (is_number(text[pos])) {
         value *= 10;
         value += text[pos] - '0';
@@ -66,6 +95,9 @@ u32 parse_number(const json_context_t *context, __json_token_t *token) {
 
     token->type = TOKEN_NUMBER;
     token->number = value + decimal;
+    if (neg) {
+        token->number *= -1.0;
+    }
     return pos;
 }
 
@@ -173,7 +205,7 @@ u32 parse_array(json_context_t *context, json_value_t *value) {
     json_value_t *values = malloc(values_size);
 
     u32 i;
-    for (i = 0; context->curtok.type != TOKEN_OBJECT_END; i++) {
+    for (i = 0; context->curtok.type != TOKEN_ARRAY_END; i++) {
         json_value_t parsed_value;
 
         u32 parse_err = parse_value(context, &parsed_value);
@@ -321,6 +353,12 @@ u32 json_parse(json_value_t *value, const char *text, const u32 len) {
     context.len = len;
     context.text = (char *)text;
     context.curtok = next_token(&context);
+
+    if (context.curtok.type == TOKEN_ARRAY_START) {
+        u32 parse_err = parse_array(&context, value);
+        value->type = JSON_TYPE_ARRAY;
+        return parse_err;
+    }
 
     u32 parse_err = parse_object(&context, value);
     value->type = JSON_TYPE_OBJECT;
