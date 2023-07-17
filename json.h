@@ -35,6 +35,15 @@ typedef int64_t i64;
          (const char **)((char *[]){ __VA_ARGS__ }),\
          sizeof((char *[]){ __VA_ARGS__ })/sizeof(char *)))
 
+#define JSON_IGET(__VALUE, __TYPE, IDX) \
+    (assert(__VALUE.type == JSON_TYPE_ARRAY), \
+     *(__TYPE *)__json_array_get_raw(__VALUE.array, IDX) \
+     )
+
+#define JSON_ARRAY_LEN(__VALUE) \
+    (assert(__VALUE.type == JSON_TYPE_ARRAY), \
+        __VALUE.array.len)
+
 #define JSON_EXISTS(__VALUE, ...) \
     (assert(__VALUE.type == JSON_TYPE_OBJECT), \
      __json_object_get_raw(__VALUE.object,\
@@ -176,5 +185,7 @@ void * __json_set(json_value_t *value, const char *key,
         const json_value_type_t type);
 
 json_value_t __json_wrap_object_value(const json_value_t value);
+
+void * __json_array_get_raw(const json_array_t array, const u32 idx);
 
 #endif

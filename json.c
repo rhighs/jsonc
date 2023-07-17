@@ -201,11 +201,12 @@ __json_token_t next_token(json_context_t *context) {
 
 u32 parse_array(json_context_t *context, json_value_t *value) {
     advance(context, TOKEN_ARRAY_START);
-    u32 values_size = sizeof(json_value_t) * 32;
+    u32 len = 32;
+    u32 values_size = sizeof(json_value_t) * len;
     json_value_t *values = malloc(values_size);
 
     u32 i;
-    for (i = 0; context->curtok.type != TOKEN_ARRAY_END; i++) {
+    for (i=0;; i++) {
         json_value_t parsed_value;
 
         u32 parse_err = parse_value(context, &parsed_value);
@@ -213,24 +214,29 @@ u32 parse_array(json_context_t *context, json_value_t *value) {
             return parse_err;
         }
 
-        if (i == 32) {
-            values_size += values_size / 2;
-            values = realloc(values, values_size);
-            if (values == NULL) {
+        if (i == len) {
+            len += len / 2;
+            json_value_t *new_values =
+                (json_value_t *)realloc(values, sizeof(json_value_t) * len);
+            if (new_values == NULL) {
+                free(values);
                 return JSON_ALLOC_FAILED_ERR;
             }
+            values = new_values;
         }
 
         values[i] = parsed_value;
 
         if (context->curtok.type != TOKEN_COMMA) {
+            assert(context->curtok.type == TOKEN_ARRAY_END);
+            i++;
             break;
         }
 
         advance(context, TOKEN_COMMA);
     }
 
-    value->array.__cap = values_size;
+    value->array.__cap = sizeof(json_value_t) * len;
     value->array.len = i;
     value->array.values = values;
 
@@ -241,14 +247,13 @@ u32 parse_array(json_context_t *context, json_value_t *value) {
 u32 parse_object(json_context_t *context, json_value_t *value) {
     advance(context, TOKEN_OBJECT_START);
 
-    u32 props_size = sizeof(json_property_t) * 32;
-    u32 keys_size = sizeof(char *) * 32;
-    char **keys = (char **)malloc(keys_size);
-    json_property_t *props = (json_property_t *)malloc(props_size);
-    memset(props, 0, props_size);
+    u32 len = 32;
+    char **keys = (char **)malloc(sizeof(char *) * len);
+    json_property_t *props = (json_property_t *)malloc(sizeof(json_property_t) * len);
+    memset(props, 0, sizeof(json_property_t) * len);
 
     u32 i;
-    for (i = 0;; i++) {
+    for (i=0;; i++) {
         json_property_t prop;
 
         u32 parse_err = parse_property(context, &prop);
@@ -256,14 +261,12 @@ u32 parse_object(json_context_t *context, json_value_t *value) {
             return parse_err;
         }
 
-        if (i == 32) {
-            props_size += props_size / 2;
-            props = realloc(props, props_size);
-
-            keys_size += keys_size / 2;
-            keys = realloc(keys, keys_size);
-
+        if (i == len) {
+            len += len / 2;
+            props = realloc(props, sizeof(json_property_t) * len);
+            keys = realloc(keys, sizeof(char *) * len);
             if (props == NULL || keys == NULL) {
+                free(props); free(keys);
                 return JSON_ALLOC_FAILED_ERR;
             }
         }
@@ -278,9 +281,9 @@ u32 parse_object(json_context_t *context, json_value_t *value) {
         advance(context, TOKEN_COMMA);
     }
 
-    value->object.__keys_cap = keys_size;
-    value->object.__props_cap = props_size;
-    value->object.len = i;
+    value->object.__keys_cap = sizeof(char *) * len;
+    value->object.__props_cap = sizeof(json_property_t) * len;
+    value->object.len = i + 1;
     value->object.keys = keys;
     value->object.props = props;
 
@@ -423,21 +426,38 @@ void * __json_object_get_raw(json_object_t object,
             if (!strcmp(object.props[i].key, key)) {
                 json_value_t *v = &(object.props[i].value);
                 switch (v->type) {
-                    case JSON_TYPE_BOOL:
-                        return &(v->boolean);
-                    case JSON_TYPE_STRING:
-                        return &(v->str);
-                    case JSON_TYPE_NUMBER:
-                        return &(v->number);
-                    default:
-                        sub_value = v;
-                        break;
+                case JSON_TYPE_BOOL:
+                    return &(v->boolean);
+                case JSON_TYPE_STRING:
+                    return &(v->str);
+                case JSON_TYPE_NUMBER:
+                    return &(v->number);
+                default:
+                    sub_value = v;
+                    break;
                 }
             }
         }
     }
 
     return sub_value;
+}
+
+void * __json_array_get_raw(const json_array_t array, const u32 idx) {
+    if (idx >= array.len) return NULL;
+
+    json_value_t *v = &(array.values[idx]);
+
+    switch (v->type) {
+    case JSON_TYPE_BOOL:
+        return &(v->boolean);
+    case JSON_TYPE_STRING:
+        return &(v->str);
+    case JSON_TYPE_NUMBER:
+        return &(v->number);
+    default:
+        return v;
+    }
 }
 
 #define __JSON_VALUE_ON_TYPE(__VALUE, __VALUE_PTR, __TYPE)\
@@ -539,3 +559,4 @@ json_value_t __json_wrap_object_value(const json_value_t value) {
 
     return new_value;
 }
+
