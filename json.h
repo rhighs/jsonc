@@ -29,34 +29,40 @@ typedef int64_t i64;
 #define JSON_ALLOC_FAILED_ERR 0x2
 #define JSON_FOPEN_ERR        0x3
 
+#ifdef JSON_NO_ASSERT
+#define JSON_ASSERT(_) NONE
+#else
+#define JSON_ASSERT(ASSERTION) assert(ASSERTION)
+#endif
+
 #define JSON_GET(__VALUE, __TYPE, ...) \
-    (assert(__VALUE.type == JSON_TYPE_OBJECT), \
+    (JSON_ASSERT(__VALUE.type == JSON_TYPE_OBJECT), \
      *(__TYPE *)__json_object_get_raw(__VALUE.object,\
          (const char **)((char *[]){ __VA_ARGS__ }),\
          sizeof((char *[]){ __VA_ARGS__ })/sizeof(char *)))
 
 #define JSON_IGET(__VALUE, __TYPE, IDX) \
-    (assert(__VALUE.type == JSON_TYPE_ARRAY), \
+    (JSON_ASSERT(__VALUE.type == JSON_TYPE_ARRAY), \
      *(__TYPE *)__json_array_get_raw(__VALUE.array, IDX) \
      )
 
 #define JSON_ARRAY_LEN(__VALUE) \
-    (assert(__VALUE.type == JSON_TYPE_ARRAY), \
+    (JSON_ASSERT(__VALUE.type == JSON_TYPE_ARRAY), \
         __VALUE.array.len)
 
 #define JSON_EXISTS(__VALUE, ...) \
-    (assert(__VALUE.type == JSON_TYPE_OBJECT), \
+    (JSON_ASSERT(__VALUE.type == JSON_TYPE_OBJECT), \
      __json_object_get_raw(__VALUE.object,\
          (const char **)((char *[]){ __VA_ARGS__ }),\
          sizeof((char *[]){ __VA_ARGS__ })/sizeof(char *))) != NULL
 
 #define JSON_TYPE(__VALUE, __KEY) \
-    (assert(__VALUE.type == JSON_TYPE_OBJECT), \
+    (JSON_ASSERT(__VALUE.type == JSON_TYPE_OBJECT), \
      __json_value_type(__VALUE.object, __KEY))
 
 #define JSON_SET(__VALUE, __KEY, __TYPE, TYPE, VALUE) \
     do{\
-        assert(__VALUE.type == JSON_TYPE_OBJECT);\
+        JSON_ASSERT(__VALUE.type == JSON_TYPE_OBJECT);\
         TYPE *value_ptr = \
             (TYPE *)__json_set(&(__VALUE), __KEY, __TYPE);\
         *value_ptr = VALUE;\

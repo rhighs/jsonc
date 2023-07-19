@@ -201,7 +201,7 @@ __json_token_t next_token(json_context_t *context) {
 
 u32 parse_array(json_context_t *context, json_value_t *value) {
     advance(context, TOKEN_ARRAY_START);
-    u32 len = 32;
+    u32 len = 4;
     u32 values_size = sizeof(json_value_t) * len;
     json_value_t *values = malloc(values_size);
 
@@ -347,7 +347,7 @@ u32 parse_property(json_context_t *context, json_property_t *prop) {
 }
 
 u32 json_parse(json_value_t *value, const char *text, const u32 len) {
-    assert(value != NULL);
+    JSON_ASSERT(value != NULL);
 
     u32 pos = 0;
     __json_token_t token;
@@ -379,30 +379,6 @@ json_value_type_t __json_value_type(const json_object_t object,
     }
 
     return JSON_TYPE_NONE;
-}
-
-u32 json_parse_file(json_value_t *value, const char *filepath) {
-    FILE *file = fopen(filepath, "r");
-    if (file == NULL)
-        return JSON_FOPEN_ERR;
-
-    fseek(file, 0, SEEK_END);
-    u32 file_size = ftell(file);
-    rewind(file);
-
-    const char *json_data = (const char *)malloc(sizeof(char) * file_size);
-
-    u32 pos = 0;
-    __json_token_t token;
-
-    json_context_t context = {0};
-    context.len = file_size;
-    context.text = (char *)json_data;
-    context.curtok = next_token(&context);
-
-    u32 parse_err = parse_object(&context, value);
-    value->type = JSON_TYPE_OBJECT;
-    return parse_err;
 }
 
 void * __json_object_get_raw(json_object_t object,
@@ -503,12 +479,12 @@ void * __json_object_add(json_object_t *object, const char *key,
     if ((object->len + 1) * sizeof(json_property_t) >= object->__props_cap) {
         object->__props_cap += object->__props_cap / 2;
         object->props = realloc(object->props, object->__props_cap);
-        assert(object->props != NULL); // FIXME: return error to the caller
+        JSON_ASSERT(object->props != NULL); // FIXME: return error to the caller
     }
     if ((object->len + 1) * sizeof(char) >= object->__keys_cap) {
         object->__keys_cap += object->__keys_cap / 2;
         object->keys = realloc(object->keys, object->__keys_cap);
-        assert(object->keys != NULL); // FIXME: return error to the caller
+        JSON_ASSERT(object->keys != NULL); // FIXME: return error to the caller
     }
 
     const u32 len = object->len;
@@ -536,7 +512,7 @@ void * __json_set(json_value_t *value, const char *key,
 }
 
 json_value_t __json_wrap_object_value(const json_value_t value) {
-    assert(value.type == JSON_TYPE_OBJECT);
+    JSON_ASSERT(value.type == JSON_TYPE_OBJECT);
     json_value_t new_value = value;
 
     const u32 props_size
