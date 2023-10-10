@@ -146,7 +146,6 @@ u32 parse_string(const json_context_t *context, __json_token_t *token) {
     assert(text[pos] == '"');
     pos++;
 
-    u32 str_len = 0;
     while (text[pos] != '"') {
         if (text[pos] == '\\') {
             pos++;
@@ -348,9 +347,6 @@ u32 parse_property(json_context_t *context, json_property_t *prop) {
 
 u32 json_parse(json_value_t *value, const char *text, const u32 len) {
     JSON_ASSERT(value != NULL);
-
-    u32 pos = 0;
-    __json_token_t token;
 
     json_context_t context = {0};
     context.len = len;

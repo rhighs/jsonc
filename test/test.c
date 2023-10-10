@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "json.h"
+#include "../json.h"
 
 i32 main(void) {
     const char *json_string = \
